@@ -46,14 +46,16 @@ func createMteResponse() *sapccms.MsgMtGetTidByNameResponse{
 	return res
 }
 
-func getMteByName(srv sapccms.SAPCCMS, name string)sapccms.ALGTIDLNRC{
+func getMteByName(srv sapccms.SAPCCMS, name string)*sapccms.ALGTIDLNRC{
 		var mteRequest = createMteRequest()
 	var mteResponse = createMteResponse()
 	
 	if err := srv.MtGetTidByName(mteRequest, mteResponse); err != nil {
 		log.Fatal(err.Error())
 	}
-	return mteResponse.GetTidTable().GetItem()[0]
+	if mteResponse.GetTidTable().GetItem()[0].Rc=="0"{
+		return &mteResponse.GetTidTable().GetItem()[0]
+	} else {return nil}
 }
 
 func preparePerfRequest(tid sapccms.ALGLOBTID) *sapccms.MsgPerfReadRequest{
@@ -77,6 +79,14 @@ func main() {
 	flag.Parse()
 	srv := sapccms.NewSAPCCMS(fmt.Sprintf("http://%s:5%s13/SAPCCMS.cgi", *flags.host, *flags.instNr))
 	tid := getMteByName(srv, *flags.mtename)
+	if tid == nil{
+		log.Fatalln("Element not found by name "+*flags.mtename)
+	}
 	perf := getPerfByTid(srv, tid.Tid)
-	fmt.Println(perf.PerfReadResponse.TidTable.Item[0].PerfValue.Avg01PerfValue)
+	perfValue := perf.PerfReadResponse.TidTable.Item[0].PerfValue
+	if perfValue.Avg01CountValue == "0" && perfValue.Avg01CountValue == "0"{
+		fmt.Println(perfValue.AlertRelevantValue)
+	}else{
+		fmt.Println(perfValue.Avg01PerfValue)
+	}
 }
