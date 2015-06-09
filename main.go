@@ -54,8 +54,16 @@ func getMteByName(srv sapccms.SAPCCMS, name string) *sapccms.ALGTIDLNRC {
 	if err := srv.MtGetTidByName(mteRequest, mteResponse); err != nil {
 		log.Fatal(err.Error())
 	}
-	if mteResponse.GetTidTable().GetItem()[0].Rc == "0" {
-		return &mteResponse.GetTidTable().GetItem()[0]
+	items := mteResponse.GetTidTable().Item
+	if len(items) > 0 {
+		if mteResponse.GetTidTable().GetItem()[0].Rc != "0" {
+
+			log.Fatalf("MtGetTidByName: RC=%s for element %s\n", items[0].Rc, *flags.mtename)
+			return nil
+
+		} else {
+			return &items[0]
+		}
 	} else {
 		return nil
 	}
@@ -77,6 +85,20 @@ func getPerfByTid(srv sapccms.SAPCCMS, tid sapccms.ALGLOBTID) *sapccms.MsgPerfRe
 	return rcvMsg
 }
 
+func printToStdout(perf *sapccms.MsgPerfReadResponse) {
+	items := perf.PerfReadResponse.TidTable.Item
+	if len(items) > 0 {
+		perfValue := items[0].PerfValue
+		if perfValue.Avg01CountValue == "0" && perfValue.Avg01CountValue == "0" {
+			fmt.Println(perfValue.AlertRelevantValue)
+		} else {
+			fmt.Println(perfValue.Avg01PerfValue)
+		}
+	} else {
+		log.Fatalf("No performance values found for %s\n", *flags.mtename)
+	}
+}
+
 func main() {
 	prepareUsage()
 	flag.Parse()
@@ -86,10 +108,6 @@ func main() {
 		log.Fatalln("Element not found by name " + *flags.mtename)
 	}
 	perf := getPerfByTid(srv, tid.Tid)
-	perfValue := perf.PerfReadResponse.TidTable.Item[0].PerfValue
-	if perfValue.Avg01CountValue == "0" && perfValue.Avg01CountValue == "0" {
-		fmt.Println(perfValue.AlertRelevantValue)
-	} else {
-		fmt.Println(perfValue.Avg01PerfValue)
-	}
+	// output to zabbix-agent
+	printToStdout(perf)
 }
